@@ -4,7 +4,7 @@ author: Thomas E. Love, Ph.D.
 date: "2025-09-02"
 format:
   revealjs: 
-    theme: default
+    theme: dark
     self-contained: true
     slide-number: true
     footnotes-hover: true
@@ -188,11 +188,11 @@ See the [Class 01 README](https://github.com/THOMASELOVE/431-classes-2025/tree/m
 
 ## We'll be guessing some ages
 
-- I will display a series of 10 photographs, each of a person.
+- I'll display 10 photographs; each shows a person.
 - For each photo your group will ...
     + estimate the age of the person in the photo (in years)
     + have the recorder type your (group) guess into the form (so if you guess age 35, you will just type 35.)
-- When you've produced guesses for each of the 10 photos, submit the form. The recorder will get an email confirmation.
+- When you've guessed all 10 ages, submit the form. The recorder will get an email confirmation.
 - Later, we'll reveal the true ages and compute errors.
 
 ## OK. Let's form the groups.
@@ -326,22 +326,17 @@ Do you think you did that well?
 
 ![](c01/images/age10.png)
 
-## How did AI do last year?
+## How did AI do? (2025-08-21)
 
-![](c01/images/age-photo-ai-2024.png)
+![](c01/images/age-photo-ai-2025.png)
 
-## Some Data from Prior Years
+## Reading in Data since 2014
 
-```{r read_data_phptos, message=FALSE, echo=FALSE}
+```{r read_data_photos, message=FALSE, echo = TRUE}
 
-library(kableExtra)
 library(tidyverse)
-ageguess <- read_csv("c01/data/photo-age-history-2023.csv")
-```
-
-```{r age_guesses, echo=FALSE}
-kbl(ageguess[c(1:4,11,21,31), c(2, 6, 3, 7, 8)]) |>
-  kable_styling(full_width = FALSE)
+ageguess <- read_csv("c01/data/photo-age-history-2024.csv")
+ageguess
 ```
 
 ## Scatterplot of Prior Results, 1
@@ -354,7 +349,10 @@ ggplot(ageguess, aes(x = age, y = mean_guess, col = year)) +
         axis.title = element_text(size = 14, face = "bold"),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 12, face = "bold")) + 
-  theme_bw()
+  theme_bw() +
+  labs(title = "Age Guessing in Previous Years",
+       subtitle = "2014-2024 class guesses, plus 2025 AI",
+       x = "True Age", y = "Mean Class-Wide Estimate") 
 ```
 
 ## Revised Scatterplot of Prior Results
@@ -374,9 +372,9 @@ ggplot(ageguess, aes(x = age, y = mean_guess, col = year)) +
   theme_bw()
 ```
 
-## Mean Class-Wide Guesses (2014-23)
+## Mean Class-Wide Guesses (2014-24)
 
-![](c01/images/age-photo-mean-2014-2023.png)
+![](c01/images/age-photo-mean-2014-2024.png)
 
 ## Distribution of Guesses by Subject
 
@@ -390,7 +388,7 @@ ggplot(temp, aes(x = label, y = mean_guess)) +
   geom_point(aes(x = label, y = age), 
              col = "blue", size = 3, shape = "X") +
   theme_bw() +
-  labs(title = "Boxplot of Guesses by Subject, 2014-23",
+  labs(title = "Boxplot of Guesses by Subject, 2014-24",
        subtitle = "Blue X indicates actual Age",
        x = "Subject's Last Name (from Card 1 to Card 10)",
        y = "Age (in years)",
@@ -399,14 +397,14 @@ ggplot(temp, aes(x = label, y = mean_guess)) +
 
 
 
-## Mean Class-Wide Errors (2014-23)
+## Mean Class-Wide Errors (2014-24)
 
-![](c01/images/age-photo-mean-error-2014-2023.png)
+![](c01/images/age-photo-mean-error-2014-2024.png)
 
-## 2023 Results: Labeled Scatterplot
+## 2024 Results: Labeled Scatterplot
 
 ```{r, echo = FALSE}
-ggplot(filter(ageguess, year == 2023), aes(x = age, y = error, fill = sex)) +
+ggplot(filter(ageguess, year == 2024), aes(x = age, y = error, fill = sex)) +
   geom_label(aes(label = label)) +
   geom_hline(yintercept = 0) + 
     guides(fill = "none") +
@@ -414,7 +412,7 @@ ggplot(filter(ageguess, year == 2023), aes(x = age, y = error, fill = sex)) +
         axis.title = element_text(size = 14, face = "bold"),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 12, face = "bold")) +
-  labs(title = "Errors in 2023 Age Guessing, by Subject's Sex",
+  labs(title = "Errors in 2024 Age Guessing, by Subject's Sex",
        x = "True Age", y = "Error in Class-Wide Estimate") + 
     theme_bw() + 
     facet_wrap(~ sex)
