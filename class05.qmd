@@ -1,0 +1,21 @@
+---
+title: "431 Class 05"
+author: Thomas E. Love, Ph.D.
+date: "2025-09-16"
+format:
+  revealjs: 
+    theme: night
+    self-contained: true
+    slide-number: true
+    footnotes-hover: true
+    preview-links: auto
+    date-format: iso
+    logo: 431-2025-logo-full.png
+    footer: "431 Class 05 | 2025-09-16 | <https://thomaselove.github.io/431-2025/>"
+---
+
+## Slides will appear in time for class.
+
+Thanks for your patience.
+
+
