@@ -68,7 +68,24 @@ Our web site: <https://thomaselove.github.io/431-2025/>
 
 ![](c01/images/TAs-2025.png)
 
-- TA Office Hours will begin Tuesday 2025-09-03.
+- TA Office Hours will begin Wednesday 2025-09-03 (schedule on next slide.)
+
+## TA Office Hours Schedule {.smaller}
+
+See our [Calendar](https://thomaselove.github.io/431-2025/calendar.html) or [Contact Us](https://thomaselove.github.io/431-2025/contact.html) page for more details.
+
+DATE	| TIME(S) (All times Eastern)
+---------- | -------------------------------------------------------
+WEDNESDAYS | 11:30 AM to 1:00 PM
+THURSDAYS | 11:45 AM to 12:45 PM, 7:00 PM to 10:00 PM
+FRIDAYS | 11:45 AM to 12:45 PM, 3:30 PM to 5:00 PM, 9:00 PM to 10:30 PM
+SATURDAYS | 10:30 AM to Noon, 7:30 PM to 9:00 PM
+SUNDAYS | 7:00 PM to 10:00 PM
+MONDAYS | 11:45 AM to 12:45 PM, 3:00 PM to 4:30 PM, 7:30 PM to 10:30 PM
+TUESDAYS | 11:45 AM to 12:45 PM, 7:00 PM to 10:00 PM
+
+- Zoom details for each of these sessions appear in [our Shared Google Drive](https://thomaselove.github.io/431-2025/google.html).
+- Office Hours are cancelled during Fall Break (2025-10-20 and 21) and Thanksgiving week (2025-11-22 through 2025-11-28), but otherwise run through Tuesday 2025-12-09.
 
 ## Structure of the 431 Course
 
@@ -308,7 +325,7 @@ Do you think you did that well?
 
 ## Some Data from Prior Years
 
-```{r read_data_photos, message=FALSE, echo=FALSE}
+```{r read_data_phptos, message=FALSE, echo=FALSE}
 
 library(kableExtra)
 library(tidyverse)
@@ -406,3 +423,4 @@ See you Thursday at 1 PM right here.
 5. [Install the R and RStudio software](https://thomaselove.github.io/431-2025/software.html) you'll need on a computer you control.
 6. Look at Dr. Love's [Course Book](https://thomaselove.github.io/431-book/), especially Chapters 1-3.
 7. Take a look at [Lab 01](https://github.com/THOMASELOVE/431-labs-2025/tree/main/lab1) (due 2025-09-17 at noon) which is your first substantial deliverable, and also glance at the instructions for [Project A](https://thomaselove.github.io/431-projectA-2025/).
+
