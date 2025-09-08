@@ -154,6 +154,69 @@ surv15_raw
 glimpse(surv15_raw)
 ```
 
+# Six Key "Verbs" for Data Management
+
+## 6 key data management "verbs"
+
+- `filter()` chooses rows
+- `select()` chooses columns
+- `arrange()` sorts rows by values
+- `mutate()` creates new columns
+- `group_by()` manipulates groups of data
+- `summarize()` provides numerical summaries
+
+All of these are in the `dplyr` package; part of the **tidyverse**. See the [Data Transformation chapter of R4DS](https://r4ds.hadley.nz/data-transform.html).
+
+## `filter()`
+
+We use the `filter()` function to change which rows are present in the data, without changing the order.
+
+```{r}
+#| echo: true
+surv15_raw |> filter(year == "2025")
+```
+
+## `select()`
+
+We use the `select()` function to change which columns are present...
+
+```{r}
+#| echo: true
+
+surv15_raw |> select(student, glasses, lastsleep)
+```
+
+## `arrange()`
+
+We use `arrange()` to change the order of the rows based on their values.
+
+```{r}
+#| echo: true
+surv15_raw |> arrange(height_in) |> 
+  select(student, height_in)
+```
+
+## `mutate()`
+
+We use `mutate()` to add new columns calculated from the existing columns.
+
+```{r}
+#| echo: true
+surv15_raw |> select(student, love_htcm, lovetrueht) |>
+  mutate(ht_error = love_htcm - lovetrueht)
+```
+
+## `group_by()` and `summarize()`
+
+We use `group_by()` to divide the data in groups of interest then use `summarize()` to obtain summaries.
+
+```{r}
+#| echo: true
+surv15_raw |> 
+  filter(complete.cases(height_in), year > 2018) |> 
+  group_by(year) |> summarize(n(), median(height_in)) 
+```
+
 ## Counting the `glasses` variable
 
 ```{r}
@@ -586,7 +649,7 @@ dat2 <- surv15 |>
   filter(year == "2025")
 
 ggplot(data = dat2, aes(x = height_in)) +
-    geom_histogram(fill = "salmon", col = "white", binwidth = 1) +
+    geom_histogram(fill = "salmon", col = "white", binwidth = 2) +
     labs(title = "Heights of Dr. Love's students",
          subtitle = "2025 (n = 53 students with height data)",
          y = "Number of Students", x = "Height (inches)")
@@ -737,7 +800,10 @@ ggplot(data = dat1, aes(x = year, y = height_in)) +
 
 ## Next Time
 
-- Two More Exploratory Questions
+- Additional Exploration of the "15-Question Survey" data
+- Dealing with categorical data
+- Thinking about associations, and modeling them
+- Comparing means / medians of two "paired" samples
 
 ## Session Information
 
