@@ -14,8 +14,762 @@ format:
     footer: "431 Class 04 | 2025-09-11 | <https://thomaselove.github.io/431-2025/>"
 ---
 
-## Slides will appear in time for class.
+## Today's Agenda
 
-Thanks for your patience.
+- Analyzing some data from the 15-item Quick Survey.
+- Addressing five exploratory questions.
+- Demonstrate techniques and code that might be helpful for Lab 1, due next Wednesday 2025-09-16 at noon.
+
+## Load packages and set theme
+
+```{r}
+#| echo: true
+#| message: false
+
+library(janitor)
+library(patchwork)
+library(rstanarm)   ## new today
+library(easystats)
+library(tidyverse)
+
+theme_set(theme_bw())
+knitr::opts_chunk$set(comment = NA)
+
+source("c04/data/Love-431.R") ## new today
+```
+
+We're sourcing in the `Love-431.R` R script, which contains a function we'll use.
+
+## Ingest, manage data
+
+Read in data from `.csv` (comma-separated version) file.
+
+```{r}
+#| echo: true
+surv15_raw <- 
+  read_csv("c04/data/survey15_2014_to_2025.csv", 
+           show_col_types = FALSE) |>
+  janitor::clean_names()
+```
+
+Select variables, make categories into factors
+
+```{r}
+#| echo: true
+surv15 <- surv15_raw |>
+    select(student, year, english, smoke, pulse, height_in, haircut) |>
+    mutate(year = as_factor(year),
+           smoke = as_factor(smoke),
+           english = as_factor(english),
+           student = as.character(student))
+```
+
+## Resulting tibble
+
+```{r}
+#| echo: true
+surv15
+```
+
+## Five Exploratory Questions
+
+1. What is the distribution of pulse rates among students in 431 since 2014?
+2. Does the distribution of student heights change materially over time?
+3. Is the Normal distribution a good model for student pulse rates from 2014-2025? How about haircut prices?
+4. Do taller people appear to have paid less for their most recent haircut?
+5. Do students have a more substantial tobacco history if their best language is English or something else?
+
+# Question 1
+
+## Question 1 
+
+What is the distribution of pulse rates among students in 431 since 2014?
+
+```{r}
+#| echo: true
+surv15 |> tabyl(pulse) |> adorn_pct_formatting()
+```
+
+## Histogram, first try
+
+-   What is the distribution of student `pulse` rates?
+
+```{r}
+#| echo: true
+#| warning: true
+#| fig-height: 3
+
+ggplot(data = surv15, aes(x = pulse)) +
+    geom_histogram()
+```
+
+## Describing the Pulse Rates
+
+How might we describe this distribution?
+
+- What is the center?
+- How much of a range around that center do we see? How spread out are the data?
+- What is the shape of this distribution?
+    - Is it symmetric, or is it skewed to the left or to the right? 
+
+(Histogram is re plotted on the next slide)
+
+## Histogram (with warning suppressed)
+
+```{r}
+#| echo: true
+#| warning: false
+ggplot(data = surv15, aes(x = pulse)) +
+    geom_histogram()
+```
+
+## Some Key Numerical Summaries
+
+```{r}
+#| echo: true
+surv15 |> select(pulse) |> summary()
+```
+
+```{r}
+#| echo: true
+length(surv15$pulse)
+sd(surv15$pulse, na.rm = TRUE)
+mad(surv15$pulse, na.rm = TRUE)
+```
+
+- Do these summaries help us describe the data?
+
+## Histogram, version 2
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+dat1 <- surv15 |>
+  filter(complete.cases(pulse))
+
+ggplot(data = dat1, aes(x = pulse)) +
+    geom_histogram(fill = "seagreen", col = "white", bins = 20) +
+    labs(title = "Pulse Rates of Dr. Love's students",
+         subtitle = "2014 - 2025",
+         y = "Number of Students",
+         x = "Pulse Rate (beats per minute)")
+```
+
+- How did we deal with missing data?
+- How did we add axis labels and titles to the plot?
+- What is the distinction between `fill` and `col`?
+- How many bins should we use?
+
+# Question 2
+
+## Question 2
+
+Does the distribution of student heights change over time?
+
+```{r}
+#| echo: true
+#| warning: true
+
+ggplot(surv15, aes(x = year, y = height_in)) +
+  geom_point()
+```
+
+## Yearly Five-Number Summaries
+
+```{r}
+#| echo: true
+#| eval: false
+surv15 |>
+    filter(complete.cases(height_in)) |>
+    group_by(year) |>
+    summarize(n = n(), min = min(height_in), q25 = quantile(height_in, 0.25),
+              median = median(height_in), q75 = quantile(height_in, 0.75),
+              max = max(height_in))
+```
+
+- What should this produce? (Results on next slide)
+
+## Yearly Five-Number Summaries
+
+```{r}
+surv15 |>
+    filter(complete.cases(height_in)) |>
+    group_by(year) |>
+    summarize(n = n(), min = min(height_in), q25 = quantile(height_in, 0.25),
+              median = median(height_in), q75 = quantile(height_in, 0.75),
+              max = max(height_in))
+```
+
+- Do these summaries change materially over time?
+- What are these summaries, specifically?
+
+## Five-Number Summary
+
+- Key summaries based on percentiles / quantiles
+    - minimum = 0th, maximum = 100th, median = 50th
+    - quartiles (25th, 50th and 75th percentiles)
+    - Range is maximum - minimum
+    - IQR (inter-quartile range) is 75th - 25th percentile
+- These summaries are generally more resistant to outliers than mean, standard deviation
+- Form the elements of a boxplot (box-and-whisker plot)
+
+## Boxplot of Heights by Year
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+dat1 <- surv15 |>
+    filter(complete.cases(height_in)) 
+
+ggplot(data = dat1, aes(x = year, y = height_in)) +
+    geom_boxplot() +
+    labs(title = "Heights of Dr. Love's students, by year",
+         subtitle = "2014 - 2025", x = "Year", y = "Height (in inches)")
+```
+
+- How did we deal with missing data here?
+
+## Thinking about the Boxplot
+
+- Box covers the middle half of the data (25th and 75th percentiles), and the solid line indicates the median
+- Whiskers extend from the quartiles to the most extreme values that are not judged by **Tukey's** "fences" method to be candidate outliers
+    - Fences are drawn at 25th percentile - 1.5 IQR and 75th percentile + 1.5 IQR
+- Are any values candidate outliers by this method?
+- Was it important to change `year` to a factor earlier?
+
+## Adding a Violin to the Boxplot
+
+- When we'd like to better understand the shape of a distribution, we can amplify the boxplot.
+
+```{r}
+#| echo: true
+#| output-location: slide
+dat1 <- surv15 |>
+    filter(complete.cases(height_in))
+
+ggplot(data = dat1, aes(x = year, y = height_in)) +
+    geom_violin() +
+    geom_boxplot(aes(fill = year), width = 0.3) +
+    guides(fill = "none") +
+    scale_fill_viridis_d(alpha = 0.3) +
+    labs(title = "Heights of Dr. Love's students, by year",
+         subtitle = "2014 - 2025", x = "Year", y = "Height (in inches)")
+```
+
+## Boxplot with Violin
+
+- How did we change the boxplot when we added the violin?
+- What would happen if we added the boxplot first and the violin second?
+- What does `guides(fill = "none")` do?
+- What does `scale_fill_viridis_d(alpha = 0.3)` do?
+
+## Key Numerical Summaries
+
+```{r}
+#| echo: true
+
+surv15 |>
+    filter(complete.cases(height_in)) |>
+    group_by(year) |>
+    summarize(n = n(), mean = mean(height_in), sd = sd(height_in),
+              median = median(height_in), mad = mad(height_in))
+```
+
+## Summary Statistics for Student Height, 2014-2025  {.smaller}
+
+```{r}
+#| echo: true
+
+surv15 |> describe_distribution(height_in)
+surv15 |> describe_distribution(height_in, centrality = "median")
+```
+
+## Use my `lovedist()` function from the `Love-431.R` script... {.smaller}
+
+```{r}
+#| echo: true
+surv15 |> reframe(lovedist(height_in)) |> print_md(digits = 2)
+```
+
+- n = sample size, miss = missing values
+- mean = arithmetic average (sum of values / number of values)
+- sd = standard deviation (measures dispersion)
+- med = median (50th percentile)
+- mad = median absolute deviation (scaled measure of dispersion)
+- min, q25, q75, max = 0th, 25th, 75th and 100th percentile
+
+## `lovedist()` results by year
+
+```{r}
+#| echo: true
+
+surv15 |> group_by(year) |> reframe(lovedist(height_in))
+```
+
+# Question 3
+
+## Question 3 
+
+Are the data on student pulse rates from 2014-2025 well described by a Normal distribution? How about haircut prices?
+
+- Can we use a mean and standard deviation to describe the center and spread of the data effectively?
+- Can we estimate a population mean accurately using our sample of data?
+
+## A Normal distribution
+
+This is a Normal (or Gaussian) distribution with mean 150 and standard deviation 30.
+
+![](c03/images/khan_normal.png)
+
+- A Normal distribution is completely specified by its mean and standard deviation. The "bell shape" doesn't change.
+
+## Summarizing Quantitative Data
+
+If the data followed a Normal model, 
+
+- we would be justified in using the sample **mean** to describe the center, and
+- in using the sample **standard deviation** to describe the spread (variation.)
+
+But it is often the case that these measures aren't robust enough, because the data show meaningful skew (asymmetry), or the data have lighter or heavier tails than a Normal model would predict.
+
+
+## The Empirical Rule for Approximately Normal Distributions 
+
+If the data followed a Normal distribution,
+
+- approximately 68% of the data would be within 1 SD of the mean, 
+- approximately 95% of the data would be within 2 SD of the mean, while 
+- essentially all (99.7%) of the data would be within 3 SD of the mean.
+
+## Empirical Rule & Pulse Rates
+
+```{r}
+#| echo: true
+
+dat2 <- surv15 |> filter(complete.cases(pulse))
+
+dat2 |> select(pulse) |> describe_distribution()
+```
+
+
+Since 2014, we've had pulse rates on 577 students, with mean 74 beats per minute and standard deviation 12.7 bpm.
+
+Consider a picture of the data...
+
+## Histogram of 2014-2025 Pulse Rates
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+dat2 <- surv15 |> filter(complete.cases(pulse))
+
+ggplot(data = dat2, aes(x = pulse)) +
+    geom_histogram(fill = "tomato", col = "white", binwidth = 5) +
+    labs(title = "Pulse Rates of Dr. Love's students",
+         subtitle = "2014-2025 (n = 577 students)",
+         y = "Number of Students", x = "Pulse Rate (bpm)")
+```
+
+- Why might I have changed from specifying `bins` to `binwidth` here?
+- Does the resulting plot look like a (bell-shaped) Normal distribution?
+
+## Checking the 1-SD Empirical Rule
+
+- Of the 577 pulse rates, how many were within 1 SD of the mean?
+  - Mean = 74, SD = 12.7.
+  - 74 - 12.7 = 61.3 bpm; 74 + 12.7 = 86.7 bpm
+
+```{r}
+#| echo: true
+
+surv15 |> 
+  filter(complete.cases(pulse)) |>
+  count(pulse >= 61.3 & pulse <= 86.7)
+
+393/(393+184)
+```
+
+## 2-SD Empirical Rule
+
+- How many of the 577 `pulse` values were between 74 - 2(12.7) = 48.6 and 74 + 2(12.7) = 99.4 bpm?
+
+```{r}
+#| echo: true
+surv15 |> filter(complete.cases(pulse)) |>
+    count(pulse >= 48.6 & pulse <= 99.4)
+
+549/(549+28)
+```
+
+## 3-SD Empirical Rule
+
+- How many of the 577 `pulse` values were between 74 - 3(12.7) = 35.9 and 74 + 3(12.7) = 112.1 bpm?
+
+```{r}
+#| echo: true
+surv15 |> filter(complete.cases(pulse)) |>
+    count(pulse >= 35.9 & pulse <= 112.1)
+
+573/(573+4)
+```
+
+## Histogram of 2014-2025 Haircut Prices
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+dat3 <- surv15 |> filter(complete.cases(haircut))
+
+ggplot(data = dat3, aes(x = haircut)) +
+    geom_histogram(fill = "forestgreen", col = "white", bins = 20) +
+    labs(title = "Haircut Prices of Dr. Love's students",
+         subtitle = "2014-2025 (n = 644 students)",
+         y = "Number of Students", x = "Haircut Price (USD)")
+```
+
+
+## Empirical Rule Table for 2014-2025 data
+
+- $\bar{x}$ = sample mean, $s$ = sample SD
+- For `pulse`: $n$ = 577 with data, $\bar{x} = 74, s = 12.7$
+- For `haircut`: $n$ = 644 with data, $\bar{x} = 32.0, s = 35.2$
+
+Range | "Normal" | `pulse` | `haircut`
+:----: | :---: | :-----: | :-------:
+$\bar{x} \pm s$ | ~68% | $\frac{393}{577}$ = 68.1% | $\frac{581}{644}$ = 90.2%  
+$\bar{x} \pm 2\times s$ | ~95% | $\frac{549}{577}$ = 95.1% |  $\frac{623}{644}$ = 96.7% 
+$\bar{x} \pm 3\times s$ | ~99.7% | $\frac{573}{577}$ = 99.3% | $\frac{632}{644}$ = 98.1% 
+
+## Boxplots: Pulse Rate & Haircut Price
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+dat2 <- surv15 |> filter(complete.cases(pulse))
+
+p2 <- ggplot(data = dat2, aes(x = "pulse (bpm)", y = pulse)) +
+  geom_violin() + geom_boxplot(width = 0.3, fill = "tomato") +
+  labs(title = "Boxplot of Student Pulse Rates", x = "")
+
+dat3 <- surv15 |> filter(complete.cases(haircut))
+
+p3 <- ggplot(data = dat3, aes(x = "haircut ($)", y = haircut)) +
+  geom_violin() + geom_boxplot(width = 0.3, fill = "forestgreen") +
+  labs(title = "Boxplot of Student Haircut Prices", x = "")
+
+p2 + p3 + 
+  plot_annotation(title = "15-Question Survey Data",
+                  subtitle = "2014-2025 Students in 431")
+```
+
+- What is `width = 0.3` doing? How about the `x` options?
+- What am I doing with `p2 + p3 + plot_annotation`?
+
+## Summarizing these data
+
+- Normal distribution may be a reasonable model for `pulse` but not `haircut` according to our plots.
+
+```{r}
+#| echo: true
+surv15 |> reframe(lovedist(pulse))
+surv15 |> reframe(lovedist(haircut))
+```
+
+- What does these results imply about how we should summarize the data?
+
+## Mean/SD vs. Median/MAD
+
+If the data are approximately Normally distributed (like `pulse`) we can safely use the sample mean and standard deviation as summaries. If not (see `haircut`), then ... 
+
+- The median is a more robust summary of the center.
+- For spread, try the median absolute deviation^[MAD scaled here to equal the standard deviation when data follow the Normal.].
+
+Measure | observed | NA | Mean | SD | Median | MAD
+-------: | ---: | ---: | ----: | ----: | ----: | ----:
+`pulse` | 577 | 79 | 74 | 12.7 | 72 | 11.9
+`haircut` | 644 | 12 | 32 | 35.2 | 25 | 22.2
+
+## Making Estimates from our Sample
+
+One estimate of the average pulse rate of all students who study at CWRU could come from our sample. 
+
+```{r}
+#| echo: true
+
+dat2 <- surv15 |> filter(complete.cases(pulse))
+
+dat2 |> reframe(lovedist(pulse))
+```
+
+Our **point estimate** for the mean pulse rate of the population of all CWRU students is the mean from our sample of `r nrow(dat2)` students with known pulse rates: `r round_half_up(mean(dat2$pulse),1)` bpm. 
+
+- How much uncertainty is there in that estimate?
+
+## Uncertainty Interval for a Mean
+
+A linear model (using only an intercept term) yields a 90% uncertainty (confidence) interval for the population mean.
+
+```{r}
+#| echo: true
+#| message: true
+
+mod_pulse <- lm(pulse ~ 1, data = dat2)
+
+model_parameters(mod_pulse, ci = 0.90)
+```
+
+Our 90% uncertainty interval (confidence interval) is (73.15, 74.89) beats per minute for the mean pulse rate across the entire population of CWRU students.
+
+## A Bayesian estimate
+
+Bayesian linear model (using only an intercept term) to obtain a 90% uncertainty (credible) interval for the population mean using a weakly informative prior.
+
+```{r}
+#| echo: true
+#| message: true
+
+set.seed(4312025) 
+mod_pulse <- stan_glm(pulse ~ 1, data = dat2, refresh = 0)
+model_parameters(mod_pulse, ci = 0.90)
+```
+
+Note that this 95% credible interval (73.12, 74.89) is very similar to the confidence interval (73.15, 74.89).
+
+## Haircut Prices
+
+A problem with the haircut price data is that it doesn't follow a Normal distribution, so it's more difficult to describe the center of the data with a sample mean...
+
+```{r}
+#| echo: true
+#| message: true
+
+dat3 <- surv15 |> filter(complete.cases(haircut))
+mod_haircut <- lm(haircut ~ 1, data = dat3)
+model_parameters(mod_haircut, ci = 0.9)
+```
+
+- Is this a completely reasonable approach here?
+
+# Question 4
+
+## Question 4
+
+Do tall people pay less for haircuts?
+
+- Why might we think that they do, before we see the data?
+- Convert our student heights from inches to centimeters...
+
+```{r}
+#| echo: true
+
+surv15 <- surv15 |> mutate(height_cm = height_in * 2.54)
+
+surv15 |> select(student, height_in, height_cm) |> head()
+```
+
+## A First Scatterplot
+
+- We'll include the straight line from a linear model, in red.
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+dat4 <- surv15 |> filter(complete.cases(height_cm, haircut)) 
+
+ggplot(dat4, aes(x = height_cm, y = haircut)) +
+    geom_point(alpha = 0.3) + 
+    geom_smooth(method = "lm", col = "red",
+                formula = y ~ x, se = TRUE) +
+    labs(x = "Height (in cm)",
+         y = "Price of last haircut (in $)",
+         title = "Do taller people pay less for haircuts?")
+```
+
+## Straight line regression model?
+
+```{r}
+#| echo: true
+dat4 <- surv15 |> filter(complete.cases(height_cm, haircut)) 
+
+mod4 <- lm(haircut ~ height_cm, data = dat4)
+
+mod4
+```
+
+## Summarizing our model
+
+```{r}
+#| echo: true
+model_parameters(mod4)
+```
+
+Regression Equation is:
+
+$$
+haircut = 124.53 - 0.54 (height_{cm}) + error
+$$
+
+Our predicted `haircut` price for someone who is 170 cm (about 5 feet 7 inches) tall is...
+
+$$
+haircut = 124.53 - 0.54 (170) = $32.73
+$$
+
+## Interpreting the Regression Equation
+
+$$
+haircut = 124.53 - 0.54 (height_{cm}) + error
+$$
+
+- The **intercept** suggests that a student who is 0 cm tall has an average haircut price of $124.53, although we don't have any students in the data whose height is anywhere near as small as 0 cm, so this isn't very useful.
+- The **slope** is more important. When comparing two students who differ by 1 cm in height, we observe a haircut price that is, on average, $0.54 smaller for the student with the larger (taller) height.
+
+## `lm` fit vs. `loess` smooth curve?
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+dat4 <- surv15 |> filter(complete.cases(height_cm, haircut)) 
+
+ggplot(dat4, aes(x = height_cm, y = haircut)) +
+    geom_point(alpha = 0.5) + 
+    geom_smooth(method = "lm", col = "red",
+                formula = y ~ x, se = FALSE) +
+    geom_smooth(method = "loess", col = "blue",
+                formula = y ~ x, se = FALSE) +
+    labs(x = "Height (in cm)",
+         y = "Price of last haircut (in $)",
+         title = "Do taller people pay less for haircuts?")
+```
+
+- Does a linear model appear to fit these data well?
+- Do taller people pay less for their haircuts?
+
+## What is the (Pearson) correlation of height and haircut price?
+
+```{r}
+#| echo: true
+dat4 <- surv15 |> filter(complete.cases(height_cm, haircut)) 
+
+dat4 |> 
+    select(height_in, height_cm, haircut) |>
+    cor() 
+```
+
+# Question 5
+
+## Question 5
+
+Do students have a more substantial tobacco history if they prefer to speak English or a language other than English?
+
+```{r}
+#| echo: true
+surv15 |> count(english, smoke)
+```
+
+`smoke` codes (tobacco use): 1 = Never, 2 = Former, 3 = Current
+
+
+## Restrict ourselves to 2025 data
+
+- Do students in the 2025 class have a more substantial history of tobacco use if they prefer to speak a language other than English?
+
+```{r}
+#| echo: true
+dat5 <- surv15 |> 
+    filter(year == "2025") |>
+    filter(complete.cases(english, smoke)) |>
+    select(student, year, english, smoke)
+summary(dat5)
+```
+
+## Tabulating the categorical variables individually
+
+```{r}
+#| echo: true
+dat5 |> tabyl(english)
+
+dat5 |> tabyl(smoke) |> adorn_pct_formatting()
+```
+
+- What does `adorn_pct_formatting()` do?
+
+## Cross-Classification </br > (2 rows $\times$ 3 columns)
+
+```{r}
+#| echo: true
+dat5 |> tabyl(english, smoke)
+```
+
+## Recode the `smoke` levels to more meaningful names in `tobacco`
+
+```{r}
+#| echo: true
+dat5 <- dat5 |> 
+    mutate(tobacco = fct_recode(smoke, 
+            "Never" = "1", "Quit" = "2", "Current" = "3"))
+```
+
+### Check our work?
+
+```{r}
+#| echo: true
+dat5 |> count(smoke, tobacco)
+```
+
+- Everyone with `smoke` = 1 has `tobacco` as Never, etc.
+
+## Restate the cross-tabulation 
+
+Now we'll use this new variable, and this time, add row and column totals.
+
+```{r}
+#| echo: true
+dat5 |> tabyl(english, tobacco) |> 
+    adorn_totals(where = c("row", "col"))
+```
+
+- What can we conclude about this association?
+
+## How about in 2014-2025?
+
+```{r}
+#| echo: true
+
+dat6 <- surv15 |> 
+  filter(complete.cases(english, smoke)) |>
+  mutate(tobacco = fct_recode(smoke, 
+            "Never" = "1", "Quit" = "2", "Current" = "3"))
+
+dat6 |> 
+  tabyl(english, tobacco) |> 
+  adorn_totals(where = c("row", "col"))
+```
+
+- Now, what is your conclusion?
+
+## Next Time
+
+Working with a new data set
+
+::: {.callout-note}
+
+By now, I've shown you everything you need to complete all Tasks for Lab 1, due next Wednesday at noon (2025-09-16.)
+
+::: 
+
+## Session Information
+
+```{r}
+#| echo: true
+xfun::session_info()
+```
 
 
