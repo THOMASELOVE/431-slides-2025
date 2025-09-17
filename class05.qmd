@@ -467,15 +467,13 @@ model_parameters(fit2, ci = 0.90)
 
 ## Bayesian fit
 
-Bayesian inference is an excellent choice for virtually every regression model, even when using **weakly informative default priors** (as we will do in 431), because it yields estimates which are stable, and because it helps us present the uncertainty associated with our estimates in useful ways.
+Bayesian inference is an excellent choice for virtually every regression model, even when using **weakly informative default priors** (as we will do in 431), because it yields estimates which are stable, and because it helps present uncertainty in useful ways.
 
 ```{r}
 #| echo: true
 
 set.seed(43120251)
-
 fit3 <- stan_glm(a1c_diff ~ 1, data = class05, refresh = 0)
-
 model_parameters(fit3, ci = 0.90)
 ```
 
