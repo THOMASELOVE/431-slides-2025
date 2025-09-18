@@ -175,7 +175,7 @@ The paired differences here appear to be symmetric, but with outliers.
 
 - This should push us towards a method which doesn't require the assumption of Normality.
   - Specifically, the bootstrap would likely be a better choice than a t test, although it didn't make a meaningful difference.
-  - 90% uncertainty interval with OLS/t test was (0.20, 0.47) and the bootstrap 90% uncertainty interval was also (0.20, 0.47).
+  - 90% uncertainty interval with OLS/t test was (0.20, 0.47) and the bootstrap 90% uncertainty interval was also (0.19, 0.47).
 
 ## What to do about outliers? (2/3)
 
