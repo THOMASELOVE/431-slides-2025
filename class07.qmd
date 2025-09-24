@@ -230,7 +230,7 @@ ggplot(ques1, aes(x = sedentary, y = red_2024)) +
                size = 2, col = "red") +
   scale_fill_viridis_d(option = "plasma", alpha = 0.4) +
   guides(fill = "none") +
-  labs(x = "% of votes for Republicans in 2024",
+  labs(y = "% of votes for Republicans in 2024",
        title = "Two Sample Comparison") +
   coord_flip()
 ```
