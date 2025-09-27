@@ -446,8 +446,8 @@ plot(contr1, estimate_means(fit1, by = "hfactor")) +
 #| echo: true
 
 set.seed(431)
-fit2 <- lm(h_out24 ~ hfactor, 
-           data = ohio_8, refresh = 0)
+fit2 <- stan_glm(h_out24 ~ hfactor, 
+                 data = ohio_8, refresh = 0)
 
 model_parameters(fit2) 
 ```
@@ -473,7 +473,8 @@ con_ols <- as_tibble(
 
 con_bay <- as_tibble(
     estimate_contrasts(fit2, ci = 0.99, p_adjust = "Holm")) |>
-    mutate(contr = str_c(Level1, " - ", Level2))
+    mutate(contr = str_c(Level1, " - ", Level2),
+           Difference = Median)
 
 p1 <- ggplot(con_ols, aes(y = contr, x = Difference)) +
   geom_point(size = 3, color = "firebrick") +
