@@ -1,0 +1,469 @@
+---
+title: "431 Class 09"
+author: Thomas E. Love, Ph.D.
+date: "2025-09-30"
+format:
+  revealjs: 
+    theme: dracula
+    self-contained: true
+    slide-number: true
+    footnotes-hover: true
+    preview-links: auto
+    date-format: iso
+    logo: 431-2025-logo-full.png
+    footer: "431 Class 09 | 2025-09-30 | <https://thomaselove.github.io/431-2025/>"
+---
+
+## Today's Agenda
+
+- New Data, with Missing Values
+  - Using `naniar` to help identify missingness
+- More on One-Factor Analysis of Variance (ANOVA)
+  - Pairwise comparisons of means
+    - Getting actual simultaneous confidence intervals
+    - Bonferroni and Tukey HSD procedures
+  - Considering an Outcome Transformation
+- Favorite Movies: Session 2
+
+## Load packages and set theme
+
+```{r}
+#| echo: true
+#| message: false
+
+library(janitor)
+library(DescTools)  ## NEW - for Bonferroni and Tukey HSD CIs
+library(naniar)     ## dealing with missing data
+library(car)        ## for the Box-Cox plot     
+library(patchwork)
+library(rstanarm)
+library(easystats)
+library(tidyverse)
+
+theme_set(theme_lucid()) ## new theme for ggplots!
+knitr::opts_chunk$set(comment = NA)
+
+source("c09/data/Love-431.R") # for the lovedist() function
+```
+
+- See [Class 09 README](https://github.com/THOMASELOVE/431-classes-2025/blob/main/class09/README.md) for alternative ggplot themes.
+
+## Get the data
+
+[EUROFAMCARE project](https://www.uke.de/extern/eurofamcare/): a survey on the situation of family carers of older people in Europe.
+
+```{r}
+#| echo: true
+ecare_orig <- read_csv("c09/data/eurocare.csv", show_col_types = FALSE) |>
+  janitor::clean_names() |>
+  mutate(across(where(is.character), as_factor)) |>
+  mutate(subject = as.character(subject))
+
+dim(ecare_orig)
+names(ecare_orig)
+```
+
+## Missingness?
+
+```{r}
+#| echo: true
+
+miss_var_summary(ecare_orig)
+```
+
+## Today's Variables
+
+```{r}
+#| echo: true
+ecare_new <- ecare_orig |>
+  dplyr::select(subject, hours, c_education, pos_impact, dependency)
+
+data_codebook(ecare_new |> select(!subject))
+```
+
+## Put factors in sensible orders?
+
+```{r}
+#| echo: true
+
+ecare_new <- ecare_new |>
+  mutate(c_education = fct_relevel(c_education, "High", 
+                                   "Middle", "Low"),
+         dependency = fct_relevel(dependency, "independent", "slight",
+                                  "moderate", "severe"))
+
+ecare_new |> tabyl(c_education, dependency)
+```
+
+## Do mean `hours` vary by `c_education`?
+
+```{r}
+#| echo: true
+
+ggplot(ecare_new, aes(y = hours, x = c_education)) +
+  geom_violin(aes(fill = c_education)) + 
+  geom_boxplot(width = 0.2) +
+  stat_summary(fun = mean, geom = "point", 
+               shape = 16, size = 3, col = "red") +
+  scale_fill_viridis_d(alpha = 0.3) +
+  guides(fill = "none")
+```
+
+## Try again with complete cases?
+
+```{r}
+#| echo: true
+
+ecare_1 <- ecare_new |> 
+  filter(complete.cases(hours, c_education))
+dim(ecare_1)
+```
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+ggplot(ecare_1, aes(y = hours, x = c_education)) +
+  geom_violin(aes(fill = c_education)) + 
+  geom_boxplot(width = 0.2) +
+  stat_summary(fun = mean, geom = "point", 
+               shape = 16, size = 3, col = "red") +
+  scale_fill_viridis_d(alpha = 0.3) +
+  guides(fill = "none")
+```
+
+## Do `hours` vary by `c_education`? (1/2)
+
+```{r}
+#| echo: true
+
+ecare_1 |> group_by(c_education) |> reframe(lovedist(hours))
+```
+
+- Sample mean `hours` are somewhat smaller for carers with higher levels of education. 
+  - Does these mean differences seem meaningful?
+  - Does each group's data follow a Normal distribution?
+
+## Do `hours` vary by `c_education`? (2/2)
+
+```{r}
+#| echo: true
+
+ecare_1 |> group_by(c_education) |> reframe(lovedist(hours))
+```
+
+- What else might we consider here?
+  - Do we have a balanced design?
+  - Are sample variances very different from each other?
+
+## ANOVA model for this comparison
+
+```{r}
+#| echo: true
+
+m1 <- lm(hours ~ c_education, data = ecare_1)
+anova(m1)
+model_parameters(m1, ci = 0.95)
+```
+
+## Holm 95% pairwise comparisons??
+
+```{r}
+#| echo: true
+
+estimate_contrasts(m1, ci = 0.95, p_adjust = "holm")
+```
+
+- **NEW**: CIs aren't actually changed from `model_parameters()`, just the `p` values!
+- Holm procedure stops once it finds a small *p* value. 
+
+## Bonferroni approach?
+
+```{r}
+#| echo: true
+
+estimate_contrasts(m1, ci = 0.95, p_adjust = "bonferroni")
+```
+
+- Again, only the *p* values change here... what to do?
+
+## Actual Bonferroni 95% CIs?
+
+```{r}
+#| echo: true
+## this requires library(DescTools)
+
+PostHocTest(aov(m1), method = "bonferroni", 
+            conf.level = 0.95, ordered = FALSE)
+```
+
+## Plot means with Bonferroni CIs
+
+```{r}
+#| echo: true
+
+par(mar=c(3,10,3,3), las = 1)
+plot(PostHocTest(aov(m1), method = "bonferroni", conf.level = 0.95))
+```
+
+## What about Tukey HSD intervals?
+
+Tukey’s HSD approach is a better choice than Holm for **pre-planned comparisons** with a **balanced (or nearly balanced)** design. Which should we use here?
+
+```{r}
+#| echo: true
+
+PostHocTest(aov(m1), method = "hsd", conf.level = 0.95, ordered = TRUE)
+```
+
+## Plot means with Tukey CIs
+
+```{r}
+#| echo: true
+
+par(mar=c(3,10,3,3), las = 1)
+plot(PostHocTest(aov(m1), method = "hsd", conf.level = 0.95))
+```
+
+
+## Does model `m1` work well?
+
+```{r}
+#| echo: true
+
+plot(m1, which = 2)
+```
+
+## Could we transform the outcome?
+
+```{r}
+#| echo: true
+
+boxCox(m1)
+```
+
+## Impact of log transformation
+
+```{r}
+#| echo: true
+
+ecare_1 |> group_by(c_education) |> reframe(lovedist(log(hours)))
+```
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+ggplot(ecare_1, aes(y = log(hours), x = c_education)) +
+  geom_violin(aes(fill = c_education)) + 
+  geom_boxplot(width = 0.2) +
+  stat_summary(fun = mean, geom = "point", 
+               shape = 16, size = 3, col = "red") +
+  scale_fill_viridis_d(alpha = 0.3) +
+  guides(fill = "none")
+```
+
+## ANOVA after Transforming `hours`
+
+```{r}
+#| echo: true
+
+m2 <- lm(log(hours) ~ c_education, data = ecare_1)
+
+anova(m2)
+```
+
+- What's the conclusion here?
+
+## Bonferroni 95% CIs for log(hours)
+
+```{r}
+#| echo: true
+
+PostHocTest(aov(m2), method = "bonferroni", 
+            conf.level = 0.95, ordered = TRUE)
+```
+
+- Variable predicted is actually **log(hours)**
+
+## Bonferroni 95% CIs for log(hours)
+
+```{r}
+#| echo: true
+
+par(mar=c(3,10,3,3), las = 1)
+plot(PostHocTest(aov(m2), method = "bonferroni", 
+            conf.level = 0.95, ordered = TRUE))
+```
+
+## Normality still a problem?
+
+```{r}
+#| echo: true
+
+plot(m2, which = 2)
+```
+
+## Kruskal-Wallis ANOVA
+
+If the data were severely skewed, you might try:
+
+```{r}
+#| echo: true
+
+kruskal.test(hours ~ c_education, data = ecare_1)
+```
+
+- $H_0$: The four education groups have the same center to their `hours` distributions.
+- $H_A$: At least one group has a shifted distribution, with a different center to its `hours`.
+
+## K Samples: Comparing Means I
+
+1. What is the outcome under study?
+2. What are the ($K \geq 2$) treatment/exposure groups?
+3. Were the data in fact collected using independent samples?
+4. Are the data random samples from the population(s) of interest? Or is there at least a reasonable argument for generalizing from the samples to the population(s)?
+5. What confidence level do we require?
+
+## K Samples: Comparing Means II
+
+6. Are we doing one-sided or two-sided testing? (usually 2-sided)
+7. What does the distribution of each individual sample tell us about which inferential procedure to use?
+8. Are there meaningful differences between population means?
+9. Can we identify pairwise comparisons of means that show meaningful differences using an appropriate procedure that protects against Type I error expansion due to multiple comparisons?
+
+## Another ANOVA Example
+
+- Starting on the next slide, there is a second one-factor ANOVA example (using the same EUROFAMCARE data) for self-study.
+- I have edited [Section 9.9 of the Course Book](https://thomaselove.github.io/431-book/09_transmore.html#pairwise-comparisons-of-means) to reflect correct simultaneous CIs for the Bonferroni and Tukey methods as presented today.
+
+OK, let's return to discussing the [favorite movies](https://github.com/THOMASELOVE/431-classes-2025/tree/main/class09) data.
+
+
+# A Second One-Factor ANOVA Example for Self-Study
+
+## Same data, new question
+
+Do `pos_impact` means differ by `dependency` level?
+
+```{r}
+#| echo: true
+
+ecare_2 <- ecare_new |> filter(complete.cases(pos_impact, dependency))
+
+ecare_2 |> group_by(dependency) |> reframe(lovedist(pos_impact))
+```
+
+- Balanced design?
+- Reasonable to pool standard deviations?
+
+## Draw comparison boxplots
+
+- Do we see serious problems with Normality?
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+ggplot(ecare_2, aes(y = pos_impact, x = dependency)) +
+  geom_violin(aes(fill = dependency)) + 
+  geom_boxplot(width = 0.2) +
+  stat_summary(fun = mean, geom = "point", 
+               shape = 16, size = 3, col = "red") +
+  scale_fill_viridis_d(alpha = 0.3) +
+  guides(fill = "none") +
+  coord_flip()
+```
+
+## Fit an ANOVA model
+
+```{r}
+#| echo: true
+
+m3 <- lm(pos_impact ~ dependency, data = ecare_2)
+anova(m3)
+model_parameters(m3, ci = 0.95)
+```
+
+## Simultaneous Bonferroni CIs?
+
+```{r}
+#| echo: true
+
+PostHocTest(aov(m3), method = "bonferroni", conf.level = 0.95)
+```
+
+## Plot means with Bonferroni CIs
+
+```{r}
+par(mar=c(3,10,3,3), las = 1)
+plot(PostHocTest(aov(m3), 
+                 method = "bonferroni", conf.level = 0.95))
+```
+
+
+## Consider transforming `pos_impact`?
+
+```{r}
+#| echo: true
+
+boxCox(m3)
+```
+
+## Impact of square transformation
+
+```{r}
+#| echo: true
+
+ecare_2 |> group_by(dependency) |> reframe(lovedist((pos_impact^2)))
+```
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+ggplot(ecare_2, aes(y = (pos_impact^2), x = dependency)) +
+  geom_violin(aes(fill = dependency)) + 
+  geom_boxplot(width = 0.2) +
+  stat_summary(fun = mean, geom = "point", 
+               shape = 16, size = 3, col = "red") +
+  scale_fill_viridis_d(alpha = 0.3) +
+  guides(fill = "none") + 
+  coord_flip()
+```
+
+## ANOVA after Transformation
+
+```{r}
+#| echo: true
+
+m4 <- lm((pos_impact^2) ~ dependency, data = ecare_2)
+anova(m4)
+model_parameters(m4, ci = 0.95)
+```
+
+## Simultaneous Bonferroni CIs?
+
+```{r}
+#| echo: true
+
+PostHocTest(aov(m4), method = "bonferroni", conf.level = 0.95)
+```
+
+## Bonferroni 95% CIs: (`pos_impact`^2)
+
+```{r}
+#| echo: true
+
+par(mar=c(3,10,3,3), las = 1)
+plot(PostHocTest(aov(m4), method = "bonferroni", 
+            conf.level = 0.95, ordered = TRUE))
+```
+
+## Session Information
+
+```{r}
+#| echo: true
+
+xfun::session_info()
+```
