@@ -36,7 +36,7 @@ library(patchwork)
 library(readxl)
 library(MKinfer)
 library(rstanarm)
-library(car)         
+library(DescTools)  ## new: used for Bonferroni         
 library(easystats)
 library(tidyverse)
 
@@ -68,7 +68,7 @@ oh19 <- read_xlsx("c08/data/ohio_2019.xlsx") |>
 ```{r}
 #| echo: true
 ohio_8 <- oh19 |>
-  select(code, county, h_out24, h_fac19rk) |>
+  dplyr::select(code, county, h_out24, h_fac19rk) |>
   mutate(hfactor = case_when(
     h_fac19rk <= 22 ~ "Best",
     h_fac19rk > 22 & h_fac19rk <= 44 ~ "High",
@@ -374,7 +374,29 @@ Or worse, if they're not independent.
 
 ## The Bonferroni Method
 
-If we do 6 tests, we could reduce the necessary $\alpha$ to 0.01 / 6 = 0.00167 and that maintains an error rate no higher than $\alpha = 0.01$ across the 6 tests.
+If we do 6 tests, we could reduce the necessary $\alpha$ to 0.01 / 6 = 0.00167 and that maintains an error rate no higher than $\alpha = 0.01$ across the 6 tests. We can obtain the relevant confidence intervals and p values...
+
+## Bonferroni CIs and p values
+
+```{r}
+#| echo: true
+
+## requires library(DescTools)
+
+PostHocTest(aov(fit1), method = "bonferroni", 
+            conf.level = 0.99)
+```
+
+## Plotting the Bonferroni intervals
+
+```{r}
+#| echo: true
+
+par(mar=c(3,7,3,3), las = 1)
+plot(PostHocTest(aov(fit1), method = "bonferroni",
+      conf.level = 0.99))
+```
+
 
 ## Better Approach: Holm-Bonferroni
 
@@ -386,38 +408,11 @@ Suppose you have $m$ comparisons, with p-values sorted from low to high as $p_1$
 
 ## Holm-Bonferroni Approach
 
-Uniformly more powerful than Bonferroni, while preserving the overall false positive rate at $\alpha$. 
+Uniformly more powerful than Bonferroni, while preserving the overall false positive rate at $\alpha$. But only the *p* values change here!
 
 ```{r}
 #| echo: true
 estimate_contrasts(fit1, ci = 0.99, p_adjust = "holm")
-```
-
-## Get the Holm results into a tibble
-
-```{r}
-#| echo: true
-
-con_holm <- estimate_contrasts(fit1, ci = 0.99, p_adjust = "holm")
-
-con_holm_tib <- tibble(con_holm) |>  
-  mutate(contr = str_c(Level1, " - ", Level2))
-
-con_holm_tib |> head()
-```
-
-## Plot the Holm results
-
-```{r}
-#| echo: true
-#| output-location: slide
-ggplot(con_holm_tib, aes(x = contr, y = Difference)) +
-  geom_point(size = 3, col = "purple") +
-  geom_errorbar(aes(ymin = CI_low, ymax = CI_high)) +
-  geom_hline(yintercept = 0, col = "red", lty = "dashed") +
-  labs(title = "Holm 99% Intervals for Health Outcomes",
-       x = "Contrast", 
-       y = "Difference in Health Outcomes Score")
 ```
 
 ## Building a Lighthouse Plot
@@ -450,49 +445,6 @@ fit2 <- stan_glm(h_out24 ~ hfactor,
                  data = ohio_8, refresh = 0)
 
 model_parameters(fit2) 
-```
-
-## Holm 99% CIs after Bayes Fit
-
-```{r}
-#| echo: true
-
-estimate_contrasts(fit2, ci = 0.99, 
-                   p_adjust = "Holm")
-```
-
-## Comparison of Holm 99% CIs
-
-```{r}
-#| echo: true
-#| output-location: slide
-
-con_ols <- as_tibble(
-    estimate_contrasts(fit1, ci = 0.99, p_adjust = "Holm")) |>
-    mutate(contr = str_c(Level1, " - ", Level2))
-
-con_bay <- as_tibble(
-    estimate_contrasts(fit2, ci = 0.99, p_adjust = "Holm")) |>
-    mutate(contr = str_c(Level1, " - ", Level2),
-           Difference = Median)
-
-p1 <- ggplot(con_ols, aes(y = contr, x = Difference)) +
-  geom_point(size = 3, color = "firebrick") +
-  geom_errorbar(aes(xmin = CI_low, xmax = CI_high)) +
-  geom_vline(xintercept = 0, col = "red", lty = "dashed") +
-  labs(title = "OLS fit",
-    subtitle = "Holm 99% HSD Intervals for Health Outcomes",
-    y = "Contrast", x = "Difference in Health Outcomes Score")
-
-p2 <- ggplot(con_bay, aes(y = contr, x = Difference)) +
-  geom_point(size = 3, color = "navy") +
-  geom_errorbar(aes(xmin = CI_low, xmax = CI_high)) +
-  geom_vline(xintercept = 0, col = "red", lty = "dashed") +
-  labs(title = "Bayesian fit",
-    subtitle = "Holm 99% HSD Intervals for Health Outcomes",
-    y = "Contrast", x = "Difference in Health Outcomes Score")
-
-p1 + p2
 ```
 
 # Checking ANOVA Assumptions
