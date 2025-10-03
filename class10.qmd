@@ -83,7 +83,7 @@ miss_case_table(eurocare) # missingness by subject
 miss_var_summary(eurocare) # missingness by variable
 ```
 
-## Filter to 846 complete cases
+## Filter to 847 complete cases
 
 - Drop missing values across all variables in `eurocare`.
 
@@ -130,7 +130,7 @@ p2 <- ggplot(ecare, aes(x = e_age)) +
 p1 + p2
 ```
 
-## Scatterplot of 846 elders
+## Scatterplot of 847 elders
 
 We'll look at `barthel` index (on the y axis) vs. `e_age` (on x). We'll plot each point with `alpha = 0.3` so that if we have multiple overlapping points, the plot will look darker there.
 
@@ -144,7 +144,7 @@ ggplot(ecare, aes(x = e_age, y = barthel)) +
               formula = y ~ x, se = FALSE, col = "blue") +
   geom_smooth(method = "lm", 
               formula = y ~ x, se = TRUE, col = "red") +
-  labs(title = "EUROFAMCARE data for 846 subjects",
+  labs(title = "EUROFAMCARE data for 847 subjects",
        x = "Age (years)", y = "Barthel Index for ADL",
        caption = "Linear model in red, loess smooth in blue")
 ```
@@ -163,7 +163,7 @@ ggplot(ecare, aes(x = e_age, y = barthel)) +
               formula = y ~ x, se = FALSE, col = "blue") +
   geom_smooth(method = "lm", 
               formula = y ~ x, se = TRUE, col = "red") +
-  labs(title = "Jittered EUROFAMCARE data for 846 subjects", 
+  labs(title = "Jittered EUROFAMCARE data for 847 subjects", 
        x = "Age (years)", y = "Barthel Index for ADL",
        caption = "Linear model in red, loess smooth in blue")
 ```
@@ -438,7 +438,7 @@ ggplot(ecare, aes(x = pos_impact, y = neg_impact)) +
               formula = y ~ x, se = FALSE, col = "blue") +
   geom_smooth(method = "lm", 
               formula = y ~ x, se = TRUE, col = "red") +
-  labs(title = "EUROFAMCARE data for 846 subjects",
+  labs(title = "EUROFAMCARE data for 847 subjects",
        x = "Positive Impact Score", 
        y = "Negative Impact Score",
        caption = "Linear model in red, loess smooth in blue")
