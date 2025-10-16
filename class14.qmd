@@ -1,0 +1,819 @@
+---
+title: "431 Class 14"
+author: Thomas E. Love, Ph.D.
+date: "2025-10-16"
+format:
+  revealjs: 
+    theme: dracula
+    self-contained: true
+    slide-number: true
+    footnotes-hover: true
+    preview-links: auto
+    date-format: iso
+    logo: 431-2025-logo-full.png
+    footer: "431 Class 14 | 2025-10-16 | <https://thomaselove.github.io/431-2025/>"
+---
+
+## Today's Agenda
+
+- Ingesting / Managing some Favorite Movies Data
+- Independent Samples Comparisons with ANOVA
+  - Checking the Fit
+  - Transformations
+- Simple Linear Regression Models
+  - Fitting and Predicting with an OLS model
+  - Performance of an OLS model
+  - What makes a "good" fit?
+
+## In addition to this...
+
+See the `movies_update1.html` document (and associated `movies_update1.qmd`) found in our Shared Drive.
+
+## Load packages and set theme
+
+```{r}
+#| echo: true
+#| message: false
+
+knitr::opts_chunk$set(comment = NA)
+
+library(janitor)
+library(naniar)
+library(googlesheets4) ## to read in data from shared Google Sheet
+library(rstanarm) ## to fit Bayesian linear models
+library(DescTools) ## for post-hoc testing in ANOVA
+library(car) ## for boxCox
+library(easystats)
+library(tidyverse)
+
+theme_set(theme_minimal())
+
+source("c14/data/Love-431.R") ## for lovedist() function
+```
+
+## Importing Data on Favorite Movies
+
+```{r}
+#| echo: true
+#| message: true
+gs4_deauth() # indicates to Google Drive that you're reading a public file
+
+url_movies <- "https://docs.google.com/spreadsheets/d/17-L3FCXxMLP_07fChi6aP7721sqol7e4qx2sOKxzry4/edit?usp=sharing"  
+## this is movies_2025-10-06 from our shared drive
+
+movies_raw <- read_sheet(url_movies, na = c("", "NA")) 
+```
+
+- I am specifying that both empty cells and cells with NA indicate missing values: `read_sheet()` needs this.
+
+```{r}
+#| echo: true
+dim(movies_raw)
+```
+
+## A little cleanup
+
+```{r}
+#| echo: true
+#| warning: false
+
+movies <- movies_raw |>
+  select(mov_id, length, imdb_stars, metascore, mpa, 
+         imdb_genres, movie) |>
+  mutate(across(where(is.character), as_factor),
+         movie = as.character(movie),
+         mov_id = as.character(mov_id))
+```
+
+### Distinct identifiers?
+
+```{r}
+#| echo: true
+
+nrow(movies_raw)
+n_distinct(movies_raw$mov_id)
+n_distinct(movies_raw$movie)
+```
+
+## Any missing values?
+
+```{r}
+#| echo: true
+
+n_miss(movies)
+miss_var_summary(movies)
+```
+
+## `mpa` is categorical
+
+```{r}
+#| echo: true
+movies |> count(mpa) |> arrange(desc(n))
+```
+
+## Collapse to 3 `mpa` categories
+
+```{r}
+#| echo: true
+movies <- movies |>
+  mutate(mpa3 = fct_lump_n(mpa, n = 2, other_level = "Other"))
+
+movies |> tabyl(mpa3)
+```
+
+- `fct_lump_n()` with n = 2 collapses all `mpa` values occurring less often than the top 2 `mpa` values, preserving missingness.
+
+## `imdb_genres` is tougher to deal with
+
+I'll make indicator variables for each of the 20 genres. A better programmer could improve this rapidly.
+
+```{r}
+#| echo: true
+
+movies <- movies |>
+  mutate(action = as.numeric(str_detect(imdb_genres, fixed("Action"))),
+         adventure = as.numeric(str_detect(imdb_genres, fixed("Adventure"))),
+         animation = as.numeric(str_detect(imdb_genres, fixed("Animation"))),
+         biography = as.numeric(str_detect(imdb_genres, fixed("Biography"))),
+         comedy = as.numeric(str_detect(imdb_genres, fixed("Comedy"))),
+         crime = as.numeric(str_detect(imdb_genres, fixed("Crime"))),
+         drama = as.numeric(str_detect(imdb_genres, fixed("Drama"))),
+         family = as.numeric(str_detect(imdb_genres, fixed("Family"))),
+         fantasy = as.numeric(str_detect(imdb_genres, fixed("Fantasy"))),
+         history = as.numeric(str_detect(imdb_genres, fixed("History"))),
+         horror = as.numeric(str_detect(imdb_genres, fixed("Horror"))),
+         mystery = as.numeric(str_detect(imdb_genres, fixed("Mystery"))),
+         music = as.numeric(str_detect(imdb_genres, fixed("Music"))),
+         musical = as.numeric(str_detect(imdb_genres, fixed("Musical"))),
+         romance = as.numeric(str_detect(imdb_genres, fixed("Romance"))),
+         scifi = as.numeric(str_detect(imdb_genres, fixed("Sci-Fi"))),
+         sport = as.numeric(str_detect(imdb_genres, fixed("Sport"))),
+         thriller = as.numeric(str_detect(imdb_genres, fixed("Thriller"))),
+         war = as.numeric(str_detect(imdb_genres, fixed("War"))),
+         western = as.numeric(str_detect(imdb_genres, fixed("Western"))),
+  )
+```
+
+## Results
+
+```{r}
+#| echo: true
+
+movies |> select(action:war) |> colSums()
+```
+
+How many movies are categorized as both `comedy` and `drama`?
+
+```{r}
+#| echo: true
+movies |> tabyl(comedy, drama)
+```
+
+## Any `action` and `musical`?
+
+```{r}
+#| echo: true
+
+movies |> count(action, musical)
+```
+
+### Which movies?
+
+```{r}
+#| echo: true
+movies |> filter(action == 1, musical == 1) |>
+  select(movie, action, musical, imdb_genres, imdb_stars)
+```
+
+# Question 1
+
+## Question 1
+
+Do movies with different `mpa` ratings show meaningful differences in average length? We'll use **98%** confidence.
+
+```{r}
+#| echo: true
+movies |> group_by(mpa3) |> reframe(lovedist(length))
+```
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+ggplot(movies, aes(x = mpa3, y = length)) +
+  geom_violin(aes(fill = mpa3)) +
+  geom_boxplot(width = 0.4, notch = TRUE) + 
+  stat_summary(fun = mean, geom = "point", size = 3, col = "hotpink") +
+  scale_fill_oi() +
+  guides(fill = "none") +
+  labs(x = "MPA rating (3 categories)", y = "Movie Length (minutes)")
+```
+
+## Second Attempt
+
+Oops. Need to fix missingness.
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+movies1 <- movies |> filter(complete.cases(mpa3, length))
+
+ggplot(movies1, aes(x = mpa3, y = length)) +
+  geom_violin(aes(fill = mpa3)) +
+  geom_boxplot(width = 0.4, notch = TRUE) + 
+  stat_summary(fun = mean, geom = "point", size = 3, col = "hotpink") +
+  scale_fill_oi() +
+  guides(fill = "none") +
+  labs(x = "MPA rating (3 categories)", y = "Movie Length (minutes)")
+```
+
+What would we like to see here?
+
+## Comparing 3 means: ANOVA
+
+```{r}
+#| echo: true
+
+fit1 <- lm(length ~ mpa3, data = movies)
+anova(fit1)
+```
+
+::: {.incremental}
+
+- The *p* value is 0.0000008. Do we need to say more?
+- How much of the variation in `length` does the `fit1` model account for?
+  - proportion explained = 15409 / (15409 + 125751) = 0.109
+
+:::
+
+## Parameters of model `fit1`
+
+```{r}
+#| echo: true
+
+model_parameters(fit1, ci = 0.98)
+```
+
+::: {.incremental}
+
+- What is the regression equation here?
+- `length` = 128.27 - 0.96 (if `mpa3` = R) - 17.24 (if `mpa3` = Other) 
+- Can we estimate the means in each `mpa3` category?
+
+:::
+
+
+## Predicting for `mpa3` categories?
+
+```{r}
+#| echo: true
+
+estimate_means(fit1, ci = 0.98)
+```
+
+::: {.incremental}
+
+- How shall we compare these means and maintain overall 98% confidence?
+- Remember the sample sizes: 84 movies in PG-13, 80 in R, 82 in Other.
+
+:::
+
+## Bonferroni comparisons?
+
+```{r}
+#| echo: true
+
+PostHocTest(aov(fit1), method = "bonferroni", conf.level = 0.98)
+```
+
+::: {.incremental}
+
+- What conclusions can we draw?
+- Would a Tukey HSD approach be appropriate here?
+  - Pre-planned comparisons? (Roughly) balanced design?
+
+:::
+
+## Tukey HSD comparisons
+
+```{r}
+#| echo: true
+
+PostHocTest(aov(fit1), method = "hsd", conf.level = 0.98)
+```
+
+I like plotting these.
+
+## Plot Tukey HSD results
+
+```{r}
+#| echo: true
+par(mar=c(3,6,3,3), las = 1)
+plot(PostHocTest(aov(fit1), method = "hsd", conf.level = 0.98))
+```
+
+## Check ANOVA diagnostics
+
+```{r}
+#| echo: true
+#| message: false
+
+set.seed(123)
+plot(check_model(fit1, check = c("pp_check", "qq"), detrend = FALSE))
+```
+
+## Would a transformation help?
+
+```{r}
+#| echo: true
+
+boxCox(fit1)
+```
+
+## Inverse of our outcome
+
+```{r}
+#| echo: true
+
+movies1 <- movies1 |> mutate(invlength = 1000/length)
+
+fit1a <- lm(invlength ~ mpa3, data = movies1)
+anova(fit1a)
+```
+
+## Why did I use 1000/length?
+
+```{r}
+#| echo: true
+
+movies1 <- movies1 |> mutate(length_inv = 1/length)
+
+fit1b <- lm(length_inv ~ mpa3, data = movies1)
+anova(fit1b)
+```
+
+## ANOVA diagnostics better?
+
+```{r}
+#| echo: true
+#| message: false
+
+set.seed(124)
+plot(check_model(fit1a, check = c("pp_check", "qq"), detrend = FALSE))
+```
+
+## Estimate group means from `fit1a`
+
+```{r}
+#| echo: true
+
+estimate_means(fit1a, ci = 0.98)
+```
+
+- What does a predicted (1000/length) of 8.11 mean?
+- Back out of transformation...
+  - if 1000/length = 8.11, then length = 1000/8.11 = 123.3 minutes (compare to 127.31 in untransformed data.)
+
+## Tukey HSD for `fit1a` model
+
+```{r}
+#| echo: true
+par(mar=c(3,6,3,3), las = 1)
+plot(PostHocTest(aov(fit1a), method = "hsd", conf.level = 0.98))
+```
+
+## Why did the direction change?
+
+```{r}
+#| echo: true
+PostHocTest(aov(fit1a), method = "hsd", conf.level = 0.98)
+```
+
+::: {.incremental}
+
+- PG-13 and R movies still look longer than "Other"
+- but a longer movie has a smaller **1000/length** value.
+
+:::
+
+# Question 2
+
+## Question 2
+
+How well can we predict `imdb_stars` (the public: 0-10 scale) using `metascore` (critics: 0-100 scale)?
+
+```{r}
+#| echo: true
+#| output-location: slide
+#| warning: true
+
+ggplot(movies, aes(x = metascore, y = imdb_stars)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red", formula = y ~ x, se = TRUE) +
+  geom_smooth(method = "loess", col = "blue", formula = y ~ x, se = FALSE) +
+  labs(x = "Metascore from Critics", y = "Average IMDB Star Rating")
+```
+
+## Deal with missing values
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+movies2 <- movies |>
+  select(mov_id, metascore, imdb_stars, imdb_genres, movie) |>
+  filter(complete.cases(metascore, imdb_stars))
+
+ggplot(movies2, aes(x = metascore, y = imdb_stars)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red", formula = y ~ x, se = TRUE) +
+  geom_smooth(method = "loess", col = "blue", formula = y ~ x, se = FALSE) +
+  labs(x = "Metascore from Critics", y = "Average IMDB Star Rating")
+```
+
+## Which movies have low `imdb_stars`?
+
+```{r}
+#| echo: true
+ggplot(movies2, aes(x = metascore, y = imdb_stars)) +
+  geom_point() +
+  geom_label(data = movies2 |> filter(imdb_stars < 5.5), aes(label = movie))
+```
+
+## Which three movies are those?
+
+```{r}
+#| echo: true
+movies2 |> filter(imdb_stars < 5.5) |>
+  select(mov_id, imdb_stars, metascore, movie, imdb_genres)
+```
+
+Let's keep these movies in, for now, at least.
+
+## Anything else need attention?
+
+```{r}
+#| echo: true
+data_codebook(movies2 |> select(metascore, imdb_stars))
+```
+
+```{r}
+#| echo: true
+movies2 |> reframe(lovedist(imdb_stars))
+movies2 |> reframe(lovedist(metascore))
+```
+
+## Linear model, fit with OLS
+
+Predict `imdb_stars` using `metascore` using OLS.
+
+```{r}
+#| echo: true
+fit2 <- lm(imdb_stars ~ metascore, data = movies2)
+
+## We'll use 89% confidence here, just for fun.
+model_parameters(fit2, digits = 3, ci = 0.89)
+```
+
+::: {.incremental}
+
+- What is our `fit2` model's regression equation?
+- `imdb_stars` = 5.37 + 0.032 `metascore`
+- Does the intercept (5.37) mean anything to us here?
+
+:::
+
+## Interpreting the coefficients
+
+```{r}
+#| echo: true
+model_parameters(fit2, digits = 3, ci = 0.89)
+```
+
+::: {.incremental}
+
+- If we have two movies, and movie A has a `metascore` that is 1 point higher than movie B, then ...
+- our model `fit2` predicts that movie A will have an `imdb_stars` value that is 0.032 higher than movie B.
+- What if movie A's metascore was 10 points higher than movie B's?
+
+:::
+
+## Making Predictions with `fit2`
+
+```{r}
+#| echo: true
+
+dat_new <- tibble(metascore = c(10, 20, 30, 40, 41))
+estimate_prediction(fit2, data = dat_new, ci = 0.89)
+```
+
+- Could instead use `estimate_expectation()`: same predictions, just confidence intervals rather than prediction intervals.
+
+## Does the model perform well?
+
+```{r}
+#| echo: true
+model_performance(fit2)
+```
+
+::: {.incremental}
+
+- How can we interpret `Sigma` = 0.603?
+  - About 95% of our predicted `imdb_stars` should be within $\pm 2(0.603)$ stars. Is this good?
+  - `movies2` data: `imdb_stars`: range (3.6, 9.3), sd = 0.781.
+  - IQR (middle half of movies) are between 7.2 and 8.1
+
+:::
+
+## Thinking about R-square
+
+```{r}
+#| echo: true
+model_performance(fit2)
+```
+
+::: {.incremental}
+
+- What proportion of the variation in `imdb_stars` is explained by `metascore`?
+- R-square = 0.408. So what is the Pearson correlation?
+- Same sign as slope: `imdb_stars` = 5.37 + 0.032 `metascore`
+- Square root of R-square (0.408) is 0.639. 
+
+:::
+
+## Checking OLS Model Fit
+
+Main assumptions of any simple linear regression are:
+
+1. **linearity**: we assume that the outcome is linearly related to our predictor 
+2. **constant variance** (homoscedasticity): we assume that the variation of our outcome is about the same regardless of the value of our predictor
+3. **normal distribution**: we assume that the errors around the regression model at any specified values of the x-variables follow an approximately Normal distribution.
+
+To check these assumptions, consider the following plots.
+
+## Diagnostic Plots?
+
+For an HTML report, run this, with 
+
+`#| fig-height: 8` in the first line of the code chunk, then
+
+```{r}
+#| echo: true
+#| eval: false
+
+set.seed(12345)  
+plot(check_model(fit2, detrend = FALSE))
+```
+
+but for the slides, I'll do...
+
+```{r}
+#| echo: true
+
+set.seed(12345)
+fit2_dx <- plot(check_model(fit2, detrend = FALSE, panel = FALSE))
+```
+
+so I can show each plots in a separate slide.
+
+- `set.seed()` is so we all get the same posterior predictive plot.
+
+## Posterior Predictive Check
+
+```{r}
+#| echo: true
+
+fit2_dx[[1]]
+```
+
+## Linearity Plot
+
+```{r}
+#| echo: true
+
+fit2_dx[[2]]
+```
+
+## Homogeneity of Variance Plot
+
+```{r}
+#| echo: true
+
+fit2_dx[[3]]
+```
+
+## Influential Observations
+
+```{r}
+#| echo: true
+
+fit2_dx[[4]]
+```
+
+## What is point 228?
+
+```{r}
+#| echo: true
+
+movies2 |> slice(228) |>
+  select(mov_id, metascore, imdb_stars, movie)
+```
+
+- If we removed "The Room", we would see some changes in our model.
+- "The Room" is the movie with the lowest `metascore`, and the lowest `imdb_stars` of any of our movies.
+
+## Normality of Residuals
+
+```{r}
+#| echo: true
+
+fit2_dx[[5]]
+```
+
+## Which movies are poorly fit?
+
+```{r}
+#| echo: true
+
+movies2 <- movies2 |> mutate(residf2 = resid(fit2), fitf2 = fitted(fit2))
+ggplot(movies2, aes(x = residf2)) +
+  geom_histogram(bins = 25, fill = "navy", col = "white")
+```
+
+## Which movies miss the mark?
+
+Which movies are more than 1.2 stars off in their predictions?
+
+```{r}
+#| echo: true
+
+movies2 |> filter(residf2 < -1.2 | residf2 > 1.2) |>
+  select(mov_id, metascore, imdb_stars, movie, residf2, fitf2) |>
+  arrange(residf2)
+```
+
+## Regression Model Calibration?
+
+```{r}
+#| echo: true
+
+ggplot(movies2, aes(x = imdb_stars, y = fitf2)) +
+  geom_text(aes(label = mov_id)) +
+  geom_abline( slope = 1, intercept = 0 , col = "sienna", lwd = 2)
+```
+
+## Calibration of this Model?
+
+```{r}
+#| echo: true
+
+ggplot(movies2, aes(x = imdb_stars, y = fitf2)) +
+  geom_point() +
+  geom_label(data = movies2 |> filter(imdb_stars < 5.4), aes(label = movie)) +
+  geom_abline( slope = 1, intercept = 0 , col = "sienna", lwd = 2)
+```
+
+## What if we dropped the three outliers?
+
+We'd have to have a real reason to do this, of course. It couldn't just be "our model doesn't fit them well."
+
+```{r}
+#| echo: true
+
+movies2a <- movies2 |> filter(imdb_stars >= 5.5)
+
+dim(movies2)
+dim(movies2a)
+```
+
+## Scatterplot with and without
+
+What happens when we drop our three "outliers"?
+
+```{r}
+#| echo: true
+#| output-location: slide
+
+p1 <- ggplot(movies2, aes(x = metascore, y = imdb_stars)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red", formula = y ~ x, se = TRUE) +
+  geom_smooth(method = "loess", col = "blue", formula = y ~ x, se = FALSE) +
+  labs(x = "Metascore from Critics", y = "Average IMDB Star Rating", 
+       title = "245 Movies")
+
+p2 <- ggplot(movies2a, aes(x = metascore, y = imdb_stars)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red", formula = y ~ x, se = TRUE) +
+  geom_smooth(method = "loess", col = "blue", formula = y ~ x, se = FALSE) +
+  labs(x = "Metascore from Critics", y = "Average IMDB Star Rating", 
+       title = "242 Movies")
+
+p1 + p2
+```
+
+## With and without 3 movies
+
+```{r}
+#| echo: true
+## with Madea Goes to Jail, Doom, and The Room
+model_parameters(fit2, ci = 0.89)
+
+
+## without those movies
+fit2a <- lm(imdb_stars ~ metascore, data = movies2a)
+model_parameters(fit2a, ci = 0.89)
+```
+
+## With and without 3 movies
+
+Summaries aren't directly comparable, since we've dropped three movies.
+
+```{r}
+#| echo: true
+## with Madea Goes to Jail, Doom, and The Room
+model_performance(fit2, ci = 0.89)
+
+## without those movies
+model_performance(fit2a, ci = 0.89)
+```
+
+## Prediction if `metascore` is 60
+
+```{r}
+#| echo: true
+
+dat_new2 <- tibble(metascore = 60)
+
+## with Madea Goes to Jail, Doom, and The Room
+estimate_expectation(fit2, ci = 0.89, data = dat_new2)
+
+## without those movies
+estimate_expectation(fit2a, ci = 0.89, data = dat_new2)
+```
+
+## Are the diagnostic plots better?
+
+```{r}
+#| echo: true
+
+set.seed(12121)
+fit2a_dx <- plot(check_model(fit2a, detrend = FALSE, panel = FALSE))
+```
+
+## "With" on left, "Without" on right
+
+```{r}
+#| echo: true
+
+p1 <- fit2_dx[[1]]
+p2 <- fit2a_dx[[1]]
+p1 + p2
+```
+
+## "With" on left, "Without" on right
+
+```{r}
+#| echo: true
+
+p1 <- fit2_dx[[2]]
+p2 <- fit2a_dx[[2]]
+p1 + p2
+```
+
+## "With" on left, "Without" on right
+
+```{r}
+#| echo: true
+
+p1 <- fit2_dx[[3]]
+p2 <- fit2a_dx[[3]]
+p1 + p2
+```
+
+## "With" on left, "Without" on right
+
+```{r}
+#| echo: true
+
+p1 <- fit2_dx[[4]]
+p2 <- fit2a_dx[[4]]
+p1 + p2
+```
+
+## "With" on left, "Without" on right
+
+```{r}
+#| echo: true
+
+p1 <- fit2_dx[[5]]
+p2 <- fit2a_dx[[5]]
+p1 + p2
+```
+
+## GOOD LUCK ON THE QUIZ!
+
+```{r}
+#| echo: true
+xfun::session_info()
+```
