@@ -478,7 +478,7 @@ pool.r.squared(m2_mods, adjusted = TRUE)
 model_performance(fit2) # original model with NAs
 ```
 
-Much, much more to come. See [Chapter 17 of our Course Book](https://thomaselove.github.io/431-book/17_adjtrans.html) for more discussion and an additional example.
+More to come. See [Chapter 17 of our Course Book](https://thomaselove.github.io/431-book/17_adjtrans.html) for more discussion and an additional example.
 
 ## Session Information
 
