@@ -443,8 +443,8 @@ When making **predictions**, we can build confidence or prediction intervals usi
 estimate_relation(fit1, ci = 0.90)
 ```
 
-- From `fit1`: Predicted `stars_sq` when `bw_test` is "Pass" = 57.42, with 90% confidence interval (38.47, 76.38).
-- Predicted `stars_sq` when `bw_test` is "Fail" = 59.73, with 90% CI (40.75, 78.70).
+- From `fit1`: Predicted `stars_sq` when `bw_test` is "Pass" = 57.42, with 90% confidence interval (55.82, 59.02).
+- Predicted `stars_sq` when `bw_test` is "Fail" = 59.73, with 90% CI (57.91, 61.55).
 
 ## Transform and predict `imdb_stars`
 
