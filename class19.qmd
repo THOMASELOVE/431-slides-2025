@@ -8,6 +8,7 @@ format:
     self-contained: true
     slide-number: true
     footnotes-hover: true
+    embed-resources: true
     preview-links: auto
     date-format: iso
     logo: 431-2025-logo-full.png
