@@ -71,7 +71,7 @@ library(tidyverse)
 
 source("c20/data/Love-431.R")
 
-theme_set(theme_bw())
+theme_set(theme_lucid())
 ```
 
 # Creating / Replacing Missing Values
