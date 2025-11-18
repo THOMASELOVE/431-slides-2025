@@ -23,7 +23,7 @@ format:
     - Key steps in evaluating a Bayesian fit
     - Reasons to "go Bayesian"
 3. ChatGPT and Large Language Models
-4. ASA Statement on the Role of Statistics ion Data Science and AI (2023)
+4. ASA Statement on the Role of Statistics in Data Science and AI (2023)
 
 ## R packages
 
