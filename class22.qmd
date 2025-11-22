@@ -297,7 +297,6 @@ We'll generate several possible models.
 ```{r}
 #| label: single_imputation
 #| echo: true
-#| cache: true
 #| warning: true
 
 set.seed(20251118)
@@ -451,7 +450,6 @@ Again, we start with our big model `fit_all12`, with all 12 predictors, but now 
 ```{r}
 #| label: best-subsets
 #| echo: true
-#| cache: true
 
 nh_best_res <- 
   ols_step_best_subset(fit_all12, max_order = 8, metric = "cp")
@@ -638,7 +636,6 @@ test_summary |> gt() |> fmt_number(decimals = 4) |>
 ```{r}
 #| label: run_25_multiple_imps
 #| echo: true
-#| cache: true
 pct_miss_case(nh_H)
 
 imp25_ests <- nh_H |>
