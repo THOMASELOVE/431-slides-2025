@@ -77,7 +77,7 @@ conflict_scout()
 
 ## Common Statistical Tests are Linear Models
 
-Jonas Kristoffer Lindelov has built up a terrific resources to explain this at
+Jonas Kristoffer Lindelov has built up a terrific resource to explain this at
 
 <https://lindeloev.github.io/tests-as-linear/>
 
@@ -372,7 +372,7 @@ ggplot(crime_with_huber, aes(x = abs(.resid), y = w)) +
 
 ## Conclusions: Weights Plot
 
-- District of Columbia will be down-weighted the most, followed by Vermont, then Alaska and and Mississippi. 
+- District of Columbia will be down-weighted the most, followed by Vermont, then Alaska and Mississippi. 
 - But many of the observations will have a weight of 1. 
 - In ordinary least squares, all observations would have weight 1.
 - So the more cases in the robust regression that have a weight close to one, the closer the results of the OLS and robust procedures will be.
